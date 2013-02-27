@@ -66,6 +66,15 @@ namespace Diminuendo.Core
         }
 
         /// <summary>
+        /// Loads the provider into the system.
+        /// </summary>
+        /// <param name="provider">The provider to add to the list.</param>
+        public void Load(IStorageProvider provider)
+        {
+            this.LoadAsync(provider).Wait();
+        }
+
+        /// <summary>
         /// Asks provider plug-ins to sync their local state with the server.
         /// </summary>
         public void Synchronize()

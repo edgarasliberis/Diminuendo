@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -102,6 +103,32 @@ namespace Diminuendo.Core.FileSystem
         {
             get { return this.Contents[name]; }
             set { this.Contents[name] = value; }
+        }
+
+        /// <summary>
+        /// Navigates to a file denoted by a path. Separate folder names using a slash (any).
+        /// </summary>
+        /// <param name="relPath">Relative path of a file.</param>
+        /// <returns>File info of resulting file. Null if not found.</returns>
+        public DFileInfo NavigateTo(string relPath)
+        {
+            if(string.IsNullOrEmpty(relPath))
+                throw new InvalidOperationException(ExceptionMessage.IsNullOrInvalid("relPath"));
+            var names = (IEnumerable<string>)relPath.Split('\\', '/');
+            var enumerator = (IEnumerator<string>)names.GetEnumerator();
+            if(!enumerator.MoveNext()) return null;
+            return traverseFileSystem(this, enumerator);
+        }
+
+        /// <summary>
+        /// Searches for a file with a specific name in the directory.
+        /// </summary>
+        /// <param name="name">Name of the file.</param>
+        /// <returns>File info of resulting file. Null if not found.</returns>
+        public DFileInfo Find(string name)
+        {
+            if (!IsDirectory) return null;
+            return Contents.Values.FirstOrDefault(file => file.Name == name);
         }
 
         /// <summary>
@@ -225,7 +252,104 @@ namespace Diminuendo.Core.FileSystem
 
         #endregion
 
+        #region Synchronous counterparts
+        /// <summary>
+        /// Creates a folder in this directory.
+        /// </summary>
+        /// <param name="name">Name of the new file. Note that some characters may be forbidden.</param>
+        /// <returns>File info of the new folder.</returns>
+        public DFileInfo CreateFolder(string name)
+        {
+            return this.CreateFolderAsync(name).Result;
+        }
+
+        /// <summary>
+        /// Uploads a file to this directory. 
+        /// </summary>
+        /// <param name="name">Name of the new file. Note that some characters may be forbidden.</param>
+        /// <param name="stream">Stream of file's contents.</param>
+        /// <param name="cancellationToken">Cancellation token for upload operation.</param>
+        /// <param name="progress">Progress reporting in percentages.</param>
+        /// <param name="fileSize">
+        /// Size of file to upload. Specify it when you need progress reporting and stream is not seekable.
+        /// </param>
+        /// <returns>File info of the new file.</returns>
+        public DFileInfo CreateFile(string name, Stream stream, CancellationToken cancellationToken,
+            IProgress<int> progress = null, long fileSize = -1)
+        {
+            return this.CreateFileAsync(name, stream, cancellationToken, progress, fileSize).Result;
+        }
+
+        /// <summary>
+        /// Gets the download stream for the current file.
+        /// </summary>
+        /// <returns>A stream of file's contents.</returns>
+        public Stream GetDownloadStream()
+        {
+            return this.GetDownloadStreamAsync().Result;
+        }
+
+        /// <summary>
+        /// Renames this file of folder.
+        /// </summary>
+        /// <param name="newName">New name of the file. Note that some characters may be forbidden.</param>
+        /// <returns>File info of the new file.</returns>
+        public DFileInfo Rename(string newName)
+        {
+            return this.RenameAsync(newName).Result;
+        }
+
+        /// <summary>
+        /// Removes this file from the storage provider.
+        /// </summary>
+        public void Delete()
+        {
+            this.DeleteAsync().Wait();
+        }
+
+        /// <summary>
+        /// This method should be called in order to inform provider that user
+        /// has navigated to current file/folder. Provider may want to react
+        /// accordingly, for example load contents of it.
+        /// </summary>
+        public void Navigated()
+        {
+            this.NavigatedAsync().Wait();
+        }
+
+        /// <summary>
+        /// Moves this file or a folder to the different location.
+        /// </summary>
+        /// <param name="destinationFolder">The new location of the file.</param>
+        /// <returns>File info of the moved file.</returns>
+        public DFileInfo Move(DFileInfo destinationFolder)
+        {
+            return this.MoveAsync(destinationFolder).Result;
+        }
+
+        /// <summary>
+        /// Copies this file or a folder to the different location.
+        /// </summary>
+        /// <param name="destinationFolder">The new location of the file.</param>
+        /// <returns>File info of the copied file.</returns>
+        public DFileInfo Copy(DFileInfo destinationFolder)
+        {
+            return this.CopyAsync(destinationFolder).Result;
+        }
+        #endregion
+
         #region Private/Protected methods
+        private static DFileInfo traverseFileSystem(DFileInfo currentFile, IEnumerator<string> nameEnumerator)
+        {
+            if (currentFile == null) return null;
+            currentFile.Navigated();
+            string name = nameEnumerator.Current;
+            var nextFile = currentFile.Find(name);
+            if (nameEnumerator.MoveNext())
+                return traverseFileSystem(nextFile, nameEnumerator);
+            else return nextFile;
+        }
+
         private async Task<DFileInfo> localFileOperationAsync(DFileInfo destinationFolder, bool move)
         {
             if (destinationFolder == null)

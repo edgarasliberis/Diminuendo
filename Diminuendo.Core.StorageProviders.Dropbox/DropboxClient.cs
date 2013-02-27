@@ -46,6 +46,14 @@ namespace Diminuendo.Core.StorageProviders.Dropbox
         }
 
         /// <summary>
+        /// Returns an URL for user to visit and allow the application to use their Dropbox.
+        /// </summary>
+        public Uri AuthUrl()
+        {
+            return this.AuthUrlAsync().Result;
+        }
+
+        /// <summary>
         /// Provides the plug-in with necessary keys to make API requests.
         /// </summary>
         /// <param name="key">App key obtained from Dropbox.</param>

@@ -122,6 +122,28 @@ namespace Diminuendo.Core.StorageProviders.SkyDrive
                 _accessToken = (string)parsedJson["access_token"];
             }
         }
+
+
+        #endregion
+
+        #region Synchronous counterparts
+        /// <summary>
+        /// Exchanges code from Live Connect to access and refresh tokens.
+        /// </summary>
+        /// <param name="code">Code obtained from Live Connect.</param>
+        public void SupplyCode(string code)
+        {
+            this.SupplyCodeAsync(code).Wait();
+        }
+
+        /// <summary>
+        /// Gets the access token providing that user has granted 
+        /// the permission and refresh token is present.
+        /// </summary>
+        public void FetchAccessToken()
+        {
+            this.FetchAccessTokenAsync().Wait();
+        }
         #endregion
 
         #region Private helpers
